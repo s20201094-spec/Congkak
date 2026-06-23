@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seni Congkak</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at center, #2d1a0f 0%, #110a06 100%);
+        }
+        /* Custom Wooden Board Aesthetic */
+        .wood-grain {
+            background-color: #8B4513;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, transparent 80%),
+                linear-gradient(to right, #4a2306, #7c3f12, #a15c25, #7c3f12, #4a2306);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.7),
+                inset 0 4px 20px rgba(255, 255, 255, 0.15),
+                inset 0 -10px 30px rgba(0, 0, 0, 0.6);
+        }
+        .inner-pit {
+            background: radial-gradient(circle at center, #1b0c03 0%, #3a1a05 100%);
+            box-shadow: 
+                inset 0 10px 15px rgba(0, 0, 0, 0.9),
+                0 2px 2px rgba(255, 255, 255, 0.1);
+        }
+        .storehouse-pit {
+            background: radial-gradient(circle at center, #140801 0%, #2e1403 100%);
+            box-shadow: 
+                inset 0 15px 25px rgba(0, 0, 0, 0.95),
+                0 3px 3px rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 3D Glass Marbles Styling */
+        .marble {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9) 0%, currentColor 60%, rgba(0,0,0,0.8) 100%);
+            box-shadow: 
+                1px 1px 2px rgba(0,0,0,0.65),
+                inset -1px -1px 2px rgba(0,0,0,0.5);
+            transition: all 0.2s ease-out;
+        }
+        @media(min-width: 768px) {
+            .marble {
+                width: 13px;
+                height: 13px;
+            }
+        }
+
+        /* Animated Sowing Pointer Arrow */
+        #sow-pointer {
+            position: absolute;
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 40;
+            pointer-events: none;
+            display: none;
+            filter: drop-shadow(0 0 8px #f59e0b);
+        }
+
+        /* Active turn glow */
+        .active-p1-turn {
+            border: 3px solid #f59e0b;
+            box-shadow: 0 0 20px #f59e0b;
+        }
+        .active-p2-turn {
+            border: 3px solid #10b981;
+            box-shadow: 0 0 20px #10b981;
+        }
+
+        /* Hide scrollbars but preserve mobile touch swipe physics */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-amber-50 flex flex-col justify-center p-2 md:p-4 overflow-x-hidden relative">
+
+    <!-- Sowing Arrow Pointer Component -->
+    <div id="sow-pointer" class="flex flex-col items-center">
+        <span class="text-2xl md:text-3xl animate-bounce">👇</span>
+        <div class="bg-amber-500 text-amber-950 px-2 py-0.5 rounded text-[9px] md:text-[10px] font-black shadow-md uppercase tracking-wider">Sowing</div>
+    </div>
+
+    <!-- Dashboard: Game Modes & Status -->
+    <main class="flex-grow flex flex-col items-center justify-center gap-4 md:gap-6 max-w-7xl mx-auto w-full py-4">
+        <div class="flex flex-col sm:flex-row flex-wrap gap-3 justify-center items-center w-full max-w-4xl px-4">
+            <!-- Mode Selector -->
+            <div class="bg-amber-950/40 border border-amber-900/40 px-3 py-1.5 md:px-4 md:py-2 rounded-xl flex items-center gap-2 md:gap-3 shadow-inner text-xs">
+                <span class="text-amber-300 font-semibold tracking-wider text-[10px] md:text-xs">MODE:</span>
+                <select id="gameMode" class="bg-amber-900/60 text-amber-100 font-semibold rounded px-2 py-1 outline-none border border-amber-700 cursor-pointer text-[11px] md:text-xs" onchange="changeGameMode()">
+                    <option value="pvp">Pass & Play</option>
+                    <option value="ai-easy">Vs AI (Easy)</option>
+                    <option value="ai-hard">Vs AI (Hard)</option>
+                </select>
+            </div>
+
+            <!-- Status Box -->
+            <div id="statusBox" class="bg-gradient-to-r from-amber-900/60 to-yellow-900/60 border border-amber-500/30 px-4 py-1.5 md:px-6 md:py-2.5 rounded-xl md:rounded-2xl shadow-xl text-center">
+                <span id="statusText" class="text-sm md:text-lg font-bold tracking-wide">Player 1's Turn</span>
+            </div>
+
+            <!-- Hand Indicator -->
+            <div id="handIndicator" class="hidden bg-amber-500 text-amber-950 px-3 py-1.5 md:px-4 md:py-2 rounded-xl font-black text-[11px] md:text-xs items-center gap-1 md:gap-2">
+                🤝 Cargo: <span id="handCount">0</span> left
+            </div>
+        </div>
+
+        <!-- Responsive Scaling Board Layer Container -->
+        <div class="w-full flex justify-start md:justify-center px-2 py-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+            <div class="min-w-[820px] md:min-w-[980px] w-full flex items-center justify-center relative origin-center scale-95 sm:scale-100 my-2 px-4">
+                <!-- The Congkak Board -->
+                <div id="congkak-board-el" class="wood-grain w-full max-w-5xl rounded-[60px] md:rounded-[100px] p-4 md:p-8 flex items-center gap-3 md:gap-6 border-[8px] md:border-[12px] border-[#3d1a05] relative snap-center">
+                    
+                    <!-- Player 2 Storehouse (Left side - Rumah 2) -->
+                    <div class="flex flex-col items-center gap-1 md:gap-2">
+                        <span class="text-[9px] md:text-xs font-bold text-emerald-400 tracking-wider">P2 RUMAH</span>
+                        <div class="storehouse-pit w-16 h-36 md:w-24 md:h-48 rounded-[30px] md:rounded-[45px] flex flex-col justify-between items-center py-4 md:py-6 relative" id="pit-15">
+                            <span class="text-lg md:text-2xl font-black text-emerald-400/30 absolute top-2 md:top-4 z-10" id="val-15">0</span>
+                            <div class="absolute inset-0 m-2 md:m-4 pointer-events-none" id="marbles-15"></div>
+                        </div>
+                    </div>
+
+                    <!-- Inner Houses Containers -->
+                    <div class="flex-grow flex flex-col gap-8 md:gap-12">
+                        <!-- Player 2 Row (Top) -->
+                        <div class="flex justify-between px-2 md:px-4" id="p2-row"></div>
+
+                        <!-- Player 1 Row (Bottom) -->
+                        <div class="flex justify-between px-2 md:px-4" id="p1-row"></div>
+                    </div>
+
+                    <!-- Player 1 Storehouse (Right side - Rumah 1) -->
+                    <div class="flex flex-col items-center gap-1 md:gap-2">
+                        <span class="text-[9px] md:text-xs font-bold text-amber-400 tracking-wider">P1 RUMAH</span>
+                        <div class="storehouse-pit w-16 h-36 md:w-24 md:h-48 rounded-[30px] md:rounded-[45px] flex flex-col justify-between items-center py-4 md:py-6 relative" id="pit-7">
+                            <span class="text-lg md:text-2xl font-black text-amber-400/30 absolute top-2 md:top-4 z-10" id="val-7">0</span>
+                            <div class="absolute inset-0 m-2 md:m-4 pointer-events-none" id="marbles-7"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Utility Controls -->
+        <div class="w-full max-w-4xl px-4 flex justify-center mt-2">
+            <button onclick="resetGame()" class="bg-gradient-to-b from-amber-600 to-amber-800 hover:from-amber-500 hover:to-amber-700 text-amber-950 transition-all font-bold px-6 py-2.5 md:px-8 md:py-3 rounded-xl shadow-lg border-t border-amber-300/30 text-xs md:text-sm tracking-widest uppercase">
+                🔄 Restart Match
+            </button>
+        </div>
+    </main>
+
+    <script>
+        let board = [5, 5, 5, 5, 5, 5, 5, 0, 5, 5, 5, 5, 5, 5, 5, 0];
+        let currentPlayer = 1;
+        let isSowing = false;
+        let gameMode = "pvp";
+
+        const marbleTones = ["#34d399", "#fbbf24", "#2dd4bf", "#818cf8", "#f43f5e", "#22d3ee", "#eab308"];
+
+        function playSowSound(pitchFactor = 1) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.frequency.setValueAtTime(550 * pitchFactor + (Math.sin(pitchFactor) * 30), ctx.currentTime);
+                osc.type = 'triangle';
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+            } catch (e) {}
+        }
+
+        function setupBoardVisuals() {
+            const p1Row = document.getElementById("p1-row");
+            const p2Row = document.getElementById("p2-row");
+            p1Row.innerHTML = ""; p2Row.innerHTML = "";
+
+            for (let i = 0; i < 7; i++) {
+                p1Row.innerHTML += `
+                    <div class="flex flex-col items-center gap-1">
+                        <button class="inner-pit w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 rounded-full flex justify-center items-center relative hover:scale-105 active:scale-95 transition-all outline-none" id="pit-${i}" onclick="triggerMove(${i})">
+                            <span class="text-[10px] md:text-xs font-black text-amber-300/40 absolute bottom-0.5 md:bottom-1 z-10" id="val-${i}">5</span>
+                            <div class="absolute inset-0 m-1 md:m-2 pointer-events-none" id="marbles-${i}"></div>
+                        </button>
+                    </div>`;
+            }
+
+            for (let i = 14; i >= 8; i--) {
+                p2Row.innerHTML += `
+                    <div class="flex flex-col items-center gap-1">
+                        <button class="inner-pit w-12 h-12 sm:w-14 sm:h-14 md:w-20 md:h-20 rounded-full flex justify-center items-center relative hover:scale-105 active:scale-95 transition-all outline-none" id="pit-${i}" onclick="triggerMove(${i})">
+                            <span class="text-[10px] md:text-xs font-black text-emerald-300/40 absolute top-0.5 md:top-1 z-10" id="val-${i}">5</span>
+                            <div class="absolute inset-0 m-1 md:m-2 pointer-events-none" id="marbles-${i}"></div>
+                        </button>
+                    </div>`;
+            }
+        }
+
+        function movePointerToPit(index) {
+            const pointer = document.getElementById("sow-pointer");
+            const targetPit = document.getElementById(`pit-${index}`);
+            if (!targetPit || !pointer) return;
+
+            const rect = targetPit.getBoundingClientRect();
+            const scrollX = window.scrollX || document.documentElement.scrollLeft;
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+
+            pointer.style.display = "flex";
+            pointer.style.left = `${rect.left + scrollX + (rect.width / 2) - 16}px`;
+            pointer.style.top = `${rect.top + scrollY - 42}px`;
+        }
+
+        function getStableDeterministicOffset(m, i, maxSpread) {
+            const angleSeed = (m * 2.3) + (i * 7.7);
+            const distSeed = (m * 4.9) + (i * 3.1);
+            
+            const angle = Math.sin(angleSeed) * Math.PI * 2;
+            const distance = Math.abs(Math.cos(distSeed)) * maxSpread;
+            
+            return { angle, distance };
+        }
+
+        function renderMarbles() {
+            const isMobile = window.innerWidth < 768;
+            for (let i = 0; i < 16; i++) {
+                const count = board[i];
+                document.getElementById(`val-${i}`).innerText = count;
+                const container = document.getElementById(`marbles-${i}`);
+                if (!container) continue;
+
+                container.innerHTML = "";
+                const isStore = (i === 7 || i === 15);
+                
+                // Adjust spread radius boundaries based on phone screens
+                let maxSpread = isStore ? 32 : 18;
+                if (isMobile) maxSpread = isStore ? 18 : 10;
+
+                for (let m = 0; m < count; m++) {
+                    const marble = document.createElement("div");
+                    marble.className = "marble";
+                    
+                    const spreadData = getStableDeterministicOffset(m, i, maxSpread);
+                    
+                    const centerX = isStore ? (isMobile ? 20 : 24) : (isMobile ? 18 : 26);
+                    const centerY = isStore ? (isMobile ? 50 : 65) : (isMobile ? 18 : 26);
+                    
+                    const x = centerX + Math.cos(spreadData.angle) * spreadData.distance;
+                    const y = centerY + Math.sin(spreadData.angle) * spreadData.distance;
+
+                    marble.style.left = `${x}px`;
+                    marble.style.top = `${y}px`;
+                    marble.style.color = marbleTones[(m + i) % marbleTones.length];
+                    container.appendChild(marble);
+                }
+            }
+        }
+
+        function updateTurnIndicator() {
+            const statusText = document.getElementById("statusText");
+            const p1Store = document.getElementById("pit-7");
+            const p2Store = document.getElementById("pit-15");
+
+            p1Store.classList.remove("active-p1-turn");
+            p2Store.classList.remove("active-p2-turn");
+
+            if (currentPlayer === 1) {
+                statusText.innerText = "Player 1's Turn";
+                statusText.className = "text-xs md:text-lg font-bold tracking-wide text-amber-400";
+                p1Store.classList.add("active-p1-turn");
+            } else {
+                statusText.innerText = gameMode.startsWith("ai") ? "AI Thinking..." : "Player 2's Turn";
+                statusText.className = "text-xs md:text-lg font-bold tracking-wide text-emerald-400";
+                p2Store.classList.add("active-p2-turn");
+            }
+        }
+
+        function triggerMove(index) {
+            if (isSowing) return;
+            if (currentPlayer === 1 && (index < 0 || index > 6)) return;
+            if (currentPlayer === 2 && (index < 8 || index > 14)) return;
+            if (board[index] === 0) return;
+
+            startSowingSequence(index);
+        }
+
+        async function startSowingSequence(startIndex) {
+            isSowing = true;
+            let marbles = board[startIndex];
+            board[startIndex] = 0;
+            
+            renderMarbles();
+            movePointerToPit(startIndex);
+
+            const handInd = document.getElementById("handIndicator");
+            const handCount = document.getElementById("handCount");
+            handInd.classList.remove("hidden");
+            handCount.innerText = marbles;
+
+            let currentIndex = startIndex;
+
+            while (marbles > 0) {
+                currentIndex = (currentIndex + 1) % 16;
+
+                if (currentPlayer === 1 && currentIndex === 15) continue;
+                if (currentPlayer === 2 && currentIndex === 7) continue;
+
+                board[currentIndex]++;
+                marbles--;
+                handCount.innerText = marbles;
+
+                movePointerToPit(currentIndex);
+                playSowSound(0.8 + (board[currentIndex] * 0.05));
+                renderMarbles();
+
+                await new Promise(res => setTimeout(res, 350));
+            }
+
+            document.getElementById("sow-pointer").style.display = "none";
+            handInd.classList.add("hidden");
+
+            if ((currentPlayer === 1 && currentIndex === 7) || (currentPlayer === 2 && currentIndex === 15)) {
+                isSowing = false;
+                checkMatchOver();
+                if (currentPlayer === 2 && gameMode.startsWith("ai")) setTimeout(triggerAIMove, 800);
+                return;
+            }
+
+            if (board[currentIndex] > 1 && currentIndex !== 7 && currentIndex !== 15) {
+                await new Promise(res => setTimeout(res, 400));
+                startSowingSequence(currentIndex);
+                return;
+            }
+
+            if (board[currentIndex] === 1) {
+                let onOwnSide = (currentPlayer === 1 && currentIndex >= 0 && currentIndex <= 6) || 
+                                (currentPlayer === 2 && currentIndex >= 8 && currentIndex <= 14);
+                if (onOwnSide) {
+                    let oppositeIndex = 14 - currentIndex;
+                    let opponentMarbles = board[oppositeIndex];
+                    if (opponentMarbles > 0) {
+                        let ownStore = currentPlayer === 1 ? 7 : 15;
+                        board[ownStore] += opponentMarbles + 1;
+                        board[currentIndex] = 0;
+                        board[oppositeIndex] = 0;
+                        renderMarbles();
+                        await new Promise(res => setTimeout(res, 400));
+                    }
+                }
+            }
+
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            isSowing = false;
+            updateTurnIndicator();
+            checkMatchOver();
+
+            if (currentPlayer === 2 && gameMode.startsWith("ai") && !isSowing) {
+                setTimeout(triggerAIMove, 1000);
+            }
+        }
+
+        function triggerAIMove() {
+            if (isSowing || currentPlayer !== 2) return;
+            let validMoves = [];
+            for (let i = 8; i <= 14; i++) if (board[i] > 0) validMoves.push(i);
+            if (validMoves.length === 0) return;
+
+            let choice = validMoves[Math.floor(Math.random() * validMoves.length)];
+            startSowingSequence(choice);
+        }
+
+        function checkMatchOver() {
+            let p1Empty = board.slice(0, 7).every(v => v === 0);
+            let p2Empty = board.slice(8, 15).every(v => v === 0);
+
+            if (p1Empty || p2Empty) {
+                for (let i = 0; i < 7; i++) { board[7] += board[i]; board[i] = 0; }
+                for (let i = 8; i < 15; i++) { board[15] += board[i]; board[i] = 0; }
+                renderMarbles();
+                
+                let msg = "Tie Match!";
+                if (board[7] > board[15]) msg = "Player 1 Wins!";
+                if (board[15] > board[7]) msg = "Player 2 Wins!";
+                
+                document.getElementById("statusText").innerText = msg;
+                document.getElementById("statusText").className = "text-sm md:text-lg font-extrabold tracking-wide text-green-400 animate-pulse";
+            }
+        }
+
+        function changeGameMode() { gameMode = document.getElementById("gameMode").value; resetGame(); }
+        function resetGame() {
+            board = [5, 5, 5, 5, 5, 5, 5, 0, 5, 5, 5, 5, 5, 5, 5, 0];
+            currentPlayer = 1; isSowing = false;
+            setupBoardVisuals(); renderMarbles(); updateTurnIndicator();
+        }
+
+        window.onload = () => { setupBoardVisuals(); resetGame(); window.addEventListener('resize', renderMarbles); };
+    </script>
+</body>
+</html>
